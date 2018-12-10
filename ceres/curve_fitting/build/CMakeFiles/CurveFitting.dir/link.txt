@@ -1,0 +1,1 @@
+/usr/bin/c++      CMakeFiles/CurveFitting.dir/main.cpp.o  -o CurveFitting -rdynamic /usr/local/lib/libceres.a -lglog -lgflags -lpthread -lspqr -lcholmod -lccolamd -lcamd -lcolamd -lamd -llapack -lf77blas -latlas -lsuitesparseconfig -lrt -lcxsparse -llapack -lf77blas -latlas -lsuitesparseconfig -lrt -lcxsparse 

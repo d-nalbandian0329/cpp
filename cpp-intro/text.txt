@@ -1,0 +1,87 @@
+
+target : prerequisites
+[TAB]recipes
+
+レシピは必ずTAB文字を直前に書かないといけないので注意
+
+target        -> 生成されるファイル名
+prerequisites -> ターゲットの生成に必要なファイル名
+recipes       -> ターゲットを生成するのに必要なファイル名
+
+
+GNU make はMakefileの一番上に書かれたルールを実行しようとする
+その際のファイル間の依存関係を自動で解決してくれる
+
+事前要件のタイムスタンプがターゲットファイルのそれよりも若い場合は
+ルールが実行される
+
+# で始まる行はコメント扱いされる
+
+変数
+variable = foobar
+target : $(variable)
+
+上記の表記は
+target : foobar
+と等価
+
+
+自動変数
+GNU Makeが自動で生成する変数
+
+$@ ターゲット
+ルールのターゲットのファイル名になる
+
+
+target :
+	echo $@
+
+>make
+echo target
+
+
+$< ルールの最初の事前要件のファイル名になる
+
+
+target : A B C
+	echo $<
+
+>make
+echo A
+
+# すべての事前要件ファイル名が空白区切りで表示される
+target : A B C
+	echo $^
+
+>make
+echo A B C
+
+target : prerequisites
+	cat prerequisites > target
+
+
+target : prerequisites
+	cat $< > $@
+
+
+
+PHONYターゲット
+ファイル名を意味せず、単にレシピを実行するターゲット名としてのみ機能するターゲット
+
+
+makeを引数なしで実行すると一番上に書かれたルールが実行される
+引数としてターゲットを指定するとそのターゲットのルールと
+依存するルールが実行される
+ターゲットと同じファイル名が存在するとルールは実行されない
+
+
+hello :
+	echo hello
+
+.PHONY : hello
+
+PHONYターゲットの事前要件とすることでターゲットと
+同名のファイルの存在の有無にかかわらずレシピを実行できる
+
+
+

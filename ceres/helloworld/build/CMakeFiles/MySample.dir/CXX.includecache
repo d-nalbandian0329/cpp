@@ -1,0 +1,14 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/takeshi/Program/C++/ceres/helloworld/main.cpp
+ceres/ceres.h
+/home/takeshi/Program/C++/ceres/helloworld/ceres/ceres.h
+glog/logging.h
+/home/takeshi/Program/C++/ceres/helloworld/glog/logging.h
+

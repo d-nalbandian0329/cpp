@@ -1,0 +1,18 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/takeshi/Program/C++/ceres/curve_fitting/main.cpp
+ceres/ceres.h
+/home/takeshi/Program/C++/ceres/curve_fitting/ceres/ceres.h
+glog/logging.h
+/home/takeshi/Program/C++/ceres/curve_fitting/glog/logging.h
+cmath
+-
+vector
+-
+

@@ -1,0 +1,1641 @@
+テンプレートについて：
+
+
+与えられた2値のうち大きい方を返す関数
+
+template<class T>
+T Max(T a, T b){
+	return (a > b ? a : b);
+}
+
+このコードが実際に展開されるのは関数が呼び出された時
+呼び出し時の引数の型に従ってコードが展開される
+
+ex.) int ret = Max(1, 2);
+
+この記述によって次のようなコードが生成される
+
+template<class T>
+int Max_of_int(int a, int b){
+	return (a > b ? a : b);
+}
+
+実際に生成される関数名は処理系によって異なる
+
+テンプレートのインスタンス化(instantiation)
+=> テンプレートパラメータに具体的な方が当てはめられて
+　実コード(実体, インスタンス)が生成されること
+
+
+クラステンプレート:
+classや構造体にテンプレートを適用したもの
+
+template<class X, class Y>
+struct some {
+	X x;
+	Y y;
+};
+
+some<int,long> s;
+
+上の記述によってテンプレートのインスタンス化が行われる
+struct some {
+	int x;
+	int y;
+};
+
+
+ex.) スタックは内包する要素だけ異なって基本的な構成は共通のもの
+　　テンプレートを用いると型の数だけ用意するなんてことはいらない
+
+template<class T>
+class Stack {
+// 以下略
+};
+
+メンバ関数を宣言と同時に定義すると
+非テンプレートなクラスの場合と同様, コンパイラが
+メンバ関数の呼び出し時にできるだけインライン展開
+しようと試みてくれる
+
+インライン展開：
+コンパイラによる最適化手法の一つ, 関数を呼び出す側に
+呼び出される関数のコードを展開し, 関数への制御転送を
+しないようにする手法
+これによって, 関数呼び出しに伴うオーバーヘッドを削減可能
+
+クラス宣言とメンバ関数の実装を分離する場合は
+各メンバ関数の定義ごとにtemplate<...> を記述する
+
+template<class T>
+class Stack {
+
+public:
+	explicit Stack(int n);
+
+
+};
+
+template<class T>
+Stack<T>::Stack(int n) : capacity_(n), index_(0) {
+	data_ = new T[capacity_];
+}
+
+
+＊クラス/関数テンプレートの実装は通常ヘッダファイルに置いて
+　コンパイル単位内にその実装が現れなければならない
+
+テンプレートは使われた時点でインスタンス化されるため
+インスタンス化の際にはその定義(実装)が必要になる
+
+ex.)
+template<class T>
+T Max(T a, T b); // 宣言のみ実装を伴わない
+
+int main(){
+	int n = Max(10, 20);
+}
+
+上記のコードをコンパイル, リンクする
+
+コンパイル:成功する
+リンク:失敗, リンク時にMax<int>の実装が見つからないため
+
+main関数内
+・Max(10, 20)によってMax<int>(10,20)と解釈される
+・Max<int>()を呼び出そうとする
+・Max<int>()の実装(実体)がどこにもない
+
+小話:using namespace をヘッダファイル内で使用するべきではない
+     includeしたコード全体に影響が及んでしまうため
+
+
+
+メンバテンプレート
+クラスのメンバをテンプレートにできる
+class Foo {
+	int value_;
+
+public:
+	explicit Foo(int v) : value_(v){}
+
+	template<class T>
+	void get(T& dst) const {
+		dst = value_;
+	}
+
+	...
+
+};
+
+
+Foo(3);
+long v;
+f.get(v);
+
+クラステンプレートとメンバテンプレートの共存も可能
+
+template <class T>
+class Stack {
+	...
+
+public:
+	template <class U>
+	void top(U&) const;
+
+	...
+};
+
+// クラステンプレート内のメンバテンプレート実装は
+// 下記のようにtemplate<......>を重ねる
+template <class T>
+template <class U>
+void Stack<T>::top(U& dst) const {
+	dst = data_[index_-1];
+}
+
+
+エイリアステンプレート
+C++11より, テンプレートを用いて型の別名を宣言できる
+
+template <class T, class Allocator>
+class Stack;
+
+// カスタムアロケータを利用するStack型
+template <class T>
+using MyStack = Stack<T, MyAllocator<T>>;
+
+// 要素型だけ後から指定
+MyStack<int> s(n);
+
+テンプレートでない型についてもusingで別名指定可能
+using 新しい型名 = 元となる型名;
+
+テンプレートを使用する場合, 宣言と実装は通常ヘッダ内に置く
+
+テンプレートをヘッダファイルで宣言して, その実装(定義)を
+別のコンパイル単位(ソースファイルなど)に置く場合
+
+ヘッダファイルをincludeしたユーザ側にはそのインターフェースだけが
+明らかになる
+
+
+デフォルトテンプレート
+=> テンプレート引数のデフォルトの型を指定できる
+   指定するとインスタンス化の際に明示的な引数の指定を省略できる
+
+// テンプレート引数省略時はdouble型と見なされる
+template <class T = double>
+T pi() { return T(3.1415926536); }
+
+int main(){
+	float x = pi<float>();  // 型の明示
+	double y = pi<>();		// 省略時 : pi<double>()
+	double z = pi();		// 省略時, 同じ
+
+...
+}
+
+クラステンプレートにも同様にデフォルトテンプレート引数
+を指定できる
+
+template<class X = double, class Y = char, class Z = Y>
+struct xyz {
+	X x;
+	Y y;
+	Z z;
+};
+
+xyz<> s; // xyz<double, char, char>
+xyz<int> s; // int,char,char
+xyz<int, long> s; // int,long,long
+xyz<int,long,string> s; // int, long, string
+
+
+テンプレート引数に整数値の指定が可能
+template <class T, int N = 10>
+class Stack {
+private:
+	T data_[N];
+	int index_;
+public:
+
+...
+};
+
+
+int main(){
+	Stack<int, 5> istack;  // int型, 最大要素数5
+	Stack<long, 8> lstack; // 8
+	Stack<void*> pstack;   // 省略時, デフォルトの10
+}
+
+
+テンプレート引数に数をとる関数テンプレートの例
+template<class T, int N>
+int size(T (&ary)[N]) {
+	return N;
+}
+
+template <class T, int N>
+T last_element(T (&ary)[N]) {
+	return ary[N-1];
+}
+
+
+グローバル変数や関数, メンバ関数のポインタはコンパイル時に
+その値(アドレス)が確定するのでテンプレート引数として与えることができる
+
+コンストラクタテンプレート
+クラステンプレート間の変換を可能にするイディオム
+
+ex.) 二次元平面上の点を表すクラスを考える
+template <class T>
+class Point {
+private:
+	T x_;
+	T y_;
+
+public:
+	Point(T x = T(), T y = T()) : x_(x), y_(y) {
+	}
+
+	Point(const Point& pt) : x_(pt.x_), y_(pt.y_){
+	}
+
+	void print(std::ostream& s) const {
+		return s << '(' << x_ << ',' << y_ << ')';
+	}
+
+	...
+};
+
+Point<int> ip(12, 34);
+// ここでエラーが発生する
+// インスタンス化した時点でPoint<int>とPoint<long>
+// は別物になるため暗黙的に変換されない
+// => コンストラクタテンプレートを利用して変換できるようにする
+Point<long> lp(ip);
+
+
+template <class T>
+class Point {
+	template<class> friend class Point;
+
+private:
+	T x_;
+	T y_;
+
+public:
+	// Constructor template
+	template<class U>
+	Point(const Point<U>& r) : x_(r.x_), y_(r.y_){
+	}
+
+	...
+};
+
+
+テンプレートの名前解決は二回行われる
+・POD(Point Of Definition)
+テンプレートが定義された時点, テンプレート引数にどのような型が与えられるか
+まだわからないのでテンプレート引数に依存しない名前(非依存名)の解決を行う
+
+・POI(Point Of Instantiation)
+テンプレートがインスタンス化された時点
+テンプレートパラメータに依存する名前の解決
+
+テンプレートパラメータに依存する名前の解決は
+インスタンス化時まで遅延される
+
+=> これを Two-Phase Name Lookup 二段階名前探索という
+
+テンプレートの定義時点において依存名が現れる時
+コードの解釈が曖昧になってコンパイルエラーが発生する場合がある
+=> 必要に応じてプログラマが名前解決のヒントを与えて曖昧さを
+　　回避する必要がある
+
+テンプレート引数が何らかの型であることを示す
+class, またはtypenameを型の前につける
+
+typenameキーワードのもう一つの用途
+
+struct X {
+	typedef int result;
+	result f();
+
+	...
+};
+
+
+int p;
+
+
+// 関数テンプレートg()内でテンプレートパラメータ
+// Tが持つ型resultへのポインタを定義している
+template<class T>
+void g(T arg){
+	T::result* p;
+
+	...
+}
+
+X型をg()に与えた場合
+void g(X arg){
+	X::result* p;
+	...
+}
+
+というふうに解釈される
+
+次に型Yをg()に与える場合を考える
+struct Y {
+	static const int result = 5;
+	...
+};
+
+関数g()は以下のように解釈される
+int p;
+
+void g(Y arg){
+  Y::result* p;
+	...
+}
+
+このときY::resultは定数「5」と定義されているので
+コンパイラはpをグローバル変数のpと解釈してしまう
+つまり, 上記の処理が5 * p という式になってしまう
+
+関数テンプレートに与える型がresultという型を持っていれば
+変数定義が行われて, resultという変数/定数を持っていれば
+乗算が行われる
+
+このようなテンプレートパラメータに依存した名前が型で
+あることをコンパイラに伝えるためにtypenameキーワードを使用する
+
+template<class T>
+void g(T arg){
+	// typenameキーワードをつけてresultが何らかの型であることを明示
+	typename T::result* p;
+	...
+}
+
+するとg()にYを与えるとY::resultが型でないので
+コンパイルエラーにできる
+
+関数の戻り値がテンプレートパラメータに依存する名前の場合にも
+typenameをつけて型であることを明示できる
+
+template<class T>
+typename T::result f(T t){
+	return t.f();
+}
+
+X x;
+X::result value = f(x);
+
+テンプレート限定子
+
+以下のようなテンプレート関数があるとする
+template <class T>
+int foo(T x, int n){
+	return x.get<3>(n);
+}
+
+上記の関数fooはテンプレートパラメータTに
+get()メンバ関数テンプレートを持つクラス
+を与えることを想定している, 下記参照
+
+class utility {
+public:
+	template <int N>
+	int get(int arg){
+		return N + arg;
+	}
+};
+
+関数テンプレートfoo<T>()が定義された時点では
+型Tが具体的にどのようなウラスか定義されていない。
+
+そのため次のように解釈される
+
+(x.get < 3) > (n)
+
+つまり「x.getが3より小さい」の比較結果がnより大きい
+という比較の式になってしまう
+
+template限定子を用いてfoo<T>()を正しく定義する
+
+template <class T>
+int foo(T x, int n){
+	// template限定子で曖昧さを回避
+	return x.template get<3>(n);
+}
+
+テンプレートの特殊化
+特定の型に対して新たな定義が可能
+・明示的(完全な)特殊化
+・部分特殊化
+
+explicit specialization (明示的特殊化)
+full specialization (完全特殊化)
+クラステンプレートや関数テンプレートを特定の型や値に対して
+新たに定義する機能
+
+ex.) 二つの値が等しいかを判別する関数equal
+
+template <class T>
+bool equal(T v1, T v2){
+	return v1 == v2;
+}
+
+この関数はintやlong, stringのようにoperator==
+が定義された型であれば問題なく動作する
+
+型Tがconst char* である時は文字列として比較したい場合
+明示的特殊化を行う
+
+template <class T>
+bool equal(T v1, T v2){
+	return v1 == v2;
+}
+
+template <>
+bool equal(const char* v1, const char* v2){
+	return std::strcmp(v1, v2) == 0;
+}
+
+partial specialization 部分特殊化
+=> 特定の型のパターンに一致する型に対する特殊パターンを定義する機能
+
+ex.) 部分特殊化を使用しないパターン
+
+template <class T>
+class Printer {
+public:
+	void out(const T& value) const {
+		std::cout << value << std::endl;
+	}
+};
+
+int main(){
+	Printer<int> prt;
+	int n = 123;
+	prt.out(n);
+
+	return 0;
+}
+
+テンプレート引数にポインタ型が与えられた場合
+アドレス値がそのまま表示されてしまう
+
+その場合, アドレス値ではなく指す先の数値を
+表示する場合にテンプレートの部分特殊化が
+必要になる
+
+template<class T>
+class Printer<T*> {
+public:
+	void out(T* value) const {
+		std::cout << *value << std::endl;
+	}
+};
+
+！！関数テンプレートでは部分特殊化が許可されていないので
+　　オーバーロードで対応する
+
+部分特殊化を行う場合にも通常のテンプレートが必要
+
+ポインタの型にconst つけると関数テンプレートのオーバーロードがうまくいかない
+
+全部通常の関数呼び出しになっちゃう
+
+イテレータが指す値をそのまま返す関数
+template <class Iterator>
+typename Iterator::value_type get_value(Iterator iter) const {
+	return *iter;
+}
+
+標準コンテナのイテレータではそのイテレータが指す要素の型が
+メンバvalue_typeの中に格納されている
+
+引数にポインタが引き渡された場合
+char*::value
+とかになってコンパイルエラー
+
+テンプレートパラメータがポインタである場合を
+別処理にするためにテンプレートの部分特殊化を行う
+
+
+標準ライブラリのiterator_traitsには関数テンプレートが用意されている
+
+namespace std {
+	template <class Iterator>
+	struct iterator_traits {
+		typedef Iterator::value_type value_type;
+		...
+	};
+
+	// ポインタに対する部分特殊化
+	template <class T>
+	struct iterator_traits<T*> {
+		typedef T value_type;
+		...
+	};
+}
+
+iterator_traitsを利用したget_value関数
+template <class Iterator>
+typename iterator_traits::value_type<Iterator>
+  get_value(Iterator iter){
+	return *ite;
+}
+
+
+
+
+ex.) 関数テンプレートとその明示的特殊化, 通常の関数の3つがある場合
+　　どれが選択されるか
+
+template <class T> T sqrt(T);
+template <class T> complex<T> sqrt(complex<T>);
+double sqrt(double);
+
+が定義されている時
+
+complex<double> z;
+sqrt(2);
+=> sqrt<int>(int)が型変換されずに適用される
+
+sqrt(2.0);
+=> sqrt<double>(double)とsqrt(double)が一致するので
+　　sqrt(double)が選ばれる
+
+特別版よりも通常の関数が優先されるため
+
+sqrt(z);
+=> sqrt(complex<double>)が最も専門特化しているため選ばれる
+
+
+はそれぞれどの関数呼び出しになるか
+
+関数テンプレート => 関数の概念の一般化
+関数テンプレートが存在する場合の解決規則 => 関数多重定義解決規則の一般化
+
+＠基本
+・関数引数セットに最も適した特別バージョン(特殊化版)を見つける
+・これらの特別バージョンと全ての通常の関数に対して
+　通常の関数多重定義解決規則を適用する
+
+
+＠上記の関数呼び出しの場合
+
+[1]多重定義に関わりを持つ関数テンプレート特別バージョンを探す
+この時, 個々の関数テンプレートを考慮に入れ同じ名前の関数テンプレートや
+関数が同じスコープ内に存在しない時にどのテンプレート関数が使われるかを
+考慮しながら作業を進める
+
+sqrt(z); の場合
+
+sqrt<double>(complex<double>)
+sqrt<complex<double>>(complex<double>)
+
+の二つが候補になる
+
+[2]呼び出せるテンプレート関数が二つあり, 片方がもう片方よりも
+専門特化している場合, 最も専門特化している関数テンプレートのみを
+次のステップへと進める
+
+sqrt(z)の場合
+sqrt<double>(complex<double>)
+の方が望ましい
+
+？sqrt(complex)に一致する呼び出しはsqrt(T)にも一致する
+
+[3]これらの関数に通常の関数を加えて関数多重定義解決規則を適用する
+＊テンプレート引数の推測によって決まったテンプレート関数引数には
+　格上げ, 標準変換, ユーザ定義変換を適用することができない
+
+sqrt(2)の場合
+sqrt(double)よりもsqrt<int>(int)がぴったり一致するのでsqrt(double)
+よりもそちらが優先される
+
+[4]関数と特別バージョンの一致の度合いが同じなら関数が選ばれる
+=> sqrt(2.0)の場合
+sqrt<double>(double)よりもsqrt(double)が選ばれる
+
+[5]以下の場合はエラー
+・呼び出しに一致するものが見つからなかった
+・同等に一致するものが複数見つかり呼び出しが曖昧になった場合
+
+
+可変引数テンプレート
+Variadic templates : 任意の数のテンプレート引数を受け取る
+　　　　　　　　　　　テンプレートを宣言できる機能
+関数テンプレート, クラステンプレート, エイリアステンプレート
+のいずれにも適用可能
+
+
+ex.)
+template <class... Types>
+struct tuple {
+};
+
+クラステンプレートパラメータリストの...の後ろの識別子Types
+=> テンプレートパラメータパック
+
+0個以上のテンプレートパラメータの並びを意味する
+
+// Typesは空
+tuple<> t0;
+
+// Typesはint 1つの並び
+tuple<int> t1;
+
+// Typesはint,float 2つの並び
+tuple<int, float> t2;
+
+// 0は型でないのでエラー
+tuple<0> error;
+
+
+
+template <class... Types>
+void f(Types... args);
+
+関数のパラメータリストにあるTypes... の後ろにある識別子args
+=> 関数パラメータパック
+
+0個以上のパラメータの並びを表す
+
+// argsは空
+f();
+
+// argsはint 1つの並び
+f(1);
+
+// argsはint, double 2つの並び
+f(1, 2.0);
+
+可変引数テンプレート関数は再帰的に型を減らしていくように
+定義して, 最終的に終端となる定義にマッチさせるのが定石の
+実装パターン
+
+
+＊パラメータパック展開可能な場所
+パラメータパックは ... をつけることで展開可能
+=> 展開場所は限られる
+
+・一般的に使われる展開場所
+
+関数パラメータパックの展開
+=> 関数パラメータリスト内に Args... args と記述することで可能
+template <class... Args>
+void f(Args... args);
+
+
+初期化子リスト内に args... と記述することでパラメータパックに
+含まれる全ての値を初期化子のリストとして使用可能
+
+template <class T, class... Args>
+void f(Args... args){
+	T ary[] = { args... };
+}
+
+テンプレートリストにX<Args...> のように書くことで
+パラメータパックを展開して他のテンプレートに渡すことができる
+
+template <class... Args>
+class X;
+
+template <class... Args>
+class Y {
+	X<Args...> value;
+};
+
+
+関数のパラメータパックも同様に他の関数テンプレート
+の引数に展開して渡すことができる
+
+template <class... Args>
+void f(Args... args);
+
+
+template <class... Args>
+void g(Args... args) {
+	f(args...);
+}
+
+
+・ラムダ式のキャプチャリスト
+ラムダ式のキャプチャリスト内に
+[args...](){}
+のように書くことでラムダ式内でパラメータパックを使用できるようになる
+
+template <class... Args>
+void g(Args... args);
+
+
+template <class... Args>
+void f(Args... args) {
+	auto func = [args...](){ g(args...); };
+}
+
+＊パラメータパックの要素全体への操作
+=> パラメータパック展開時にパラメータパックに適用された
+　関数や演算子はパラメータパック内の要素それぞれに適用される
+
+ex.)
+printType(sizeof(body)...);
+	=> printType(sizeof(4), sizeof("two"));
+
+printType(++body...);
+	=> printType(++4, ++"two");
+
+1つの引数を受け取る関数fがあるとき
+f(body)...
+引数としてパラメータパックを引数として与えて
+関数適用後に...と書くことでパラメータパックに
+含まれる全ての要素に同じ関数・演算子を適用される
+
+
+＊非型テンプレートパラメータを可変引数テンプレートに
+=> 数値のパラメータパックをコンパイル時に決定する値の
+   シーケンスとしてコンテナを初期化
+
+まとめ
+テンプレートの基本的な使用方法
+1. 差し替え可能な型や整数値によるクラスや関数, 型の別名といったものを
+　　定義して利用すること
+
+2. 必要に応じて特定の型・数値に対する特殊化版を用意すること
+
+
+STL(Standard Template Library)
+-- Contents --
+・Container
+・Algorithm
+・Iterator
+・Function Object
+
+
+Iterator
+=> 抽象化されたポインタ, 反復子
+   コンテナとアルゴリズムの中間インターフェース
+   iteratorのおかげでコンテナとアルゴリズムの実装を分離できる
+
+標準ライブラリの各コンテナは以下の関数によって
+始点・終点へのイテレータを取得できる
+
+std::begin(container)
+
+std::end(container)
+
+
+コンテナに関するイテレータ
+・Input Iterator : もっとも機能の少ないイテレータ
+　　　　　　　　　　operator++による前方への横断, operator*による間接参照が可能
+　　　　　　　　　　標準のすべてのコンテナのイテレータがこれに合致する
+
+・Forward Iterator : Input Iteratorに加えてoperator*を介しての要素の書き換えが可能な
+　　　　　　　　　　　イテレータ, std::forward_listのイテレータがこれに合致する
+
+・Bidirectional Iterator
+=> Forward Iteratorに加えてoperator--によって後方への横断が可能なイテレータ
+   std::list, std::set, std::mapのイテレータがこれに合致する
+
+・Random Access Iterator
+=> 双方向イテレータに加えてoperator[], operator+=, operator-=によって
+　　任意の位置にアクセスできるイテレータ
+    std::vector, std::deque のイテレータ, 組み込み配列のポインタがこれに該当する
+
+
+＊アルゴリズムによって必要とされるイテレータが異なる
+ex.) std::sort はRandom Access Iteratorを必要とするので
+　　　Bidirectional Iteratorを持つstd::list, std::set, std::map
+      はstd::sortの対象にできない
+
+std::list<int> ls = { 3, 1, 4 };
+
+// Compile error
+std::sort(std::begin(ls), std::end(ls));
+
+アルゴリズムの利用者はコンテナが持つイテレータの種類と
+アルゴリズムが必要とするイテレータの種類を把握していなければならない
+
+Output Iterator : 複数の要素を他のコンテナやストリームへ出力する
+　　　　　　　　　アルゴリズムを設計する際に使用する
+					コンテナを対象としない特殊なイテレータ
+operator* : 間接参照されたオブジェクトに値を代入することで要素を書き込む
+
+operator++ : 次の要素へ移動する
+
+<iterator>
+std::back_inserter
+namespace std {
+	template <class Container>
+	back_insert_iterator<Container> back_inserter(Container& x);
+}
+
+back_insert_iteratorのヘルパ関数
+
+Constructs a back insert iterator that inserts a new elements
+at the end of x.
+
+
+back_insert_iterator 内に以下の処理が書いてあるので
+std::back_inserterの対象とするコンテナはpush_back
+をメンバ関数として所持していなければならない
+
+...
+
+public:
+operator=(typename Container::value_type& value)
+{ container->push_back(value); return *this; }
+
+...
+
+private:
+// Pointer to Container
+Container* container;
+
+
+その他の出力イテレータ
+std::inserter() / std::insert_iterator
+c.insert()メンバ関数を呼び出す
+
+std::front_inserter / std::front_insert_iterator
+c.push_front()メンバ関数を呼び出す
+
+ostream_iterator
+出力ストリームに書き出す
+
+
+functor / function object
+=> アルゴリズムに引数として与える関数として機能するオブジェクト
+
+関数オブジェクトを与えることでfind()関数の検索条件を拡張
+find_if()
+
+ちなみにstd::sortの場合はコンテナの要素を比較する条件
+として関数オブジェクトを渡すことができる
+
+関数オブジェクトをあらかじめ用意する方法と
+C++11から導入されたlambdaを使ってその場で
+用意する方法がある
+
+
+＠関数テンプレートは与えた引数から型を推論することができるが
+　クラステンプレートではできない！
+
+ex.)
+template<class T>
+T max(T n1, T n2);
+
+int data[] = { 1, 2, 3 };
+
+// これはおk, 型推論が行われる
+auto ret = max(data[0], data[1]);
+
+// vectorはクラステンプレートなので引数から
+// 型を推論することができない
+std::vector<> ivec(std::begin(vec), std::end(vec));
+
+そのためイテレータのペアを作成して関数に渡すといったこと
+をする際はコードの記述が本当に大変になる
+そこで型指定を内部で行う関数テンプレートを用意して
+煩雑さを解消する
+
+<utility>
+
+template <class FirstT, class SecondT>
+pair<FirstT, SecondT> make_pair(FirstT&& arg1, SecondT&& arg2) {
+	return pair<FirstT,SecondT>(forward(arg1), forward(arg2));
+}
+
+
+function template
+std::forward
+
+template <class T>
+T&& forward(typename remove_reference<T>::type& arg) noexcept;
+
+template <class T>
+T&& forward(typename remove_reference<T>::type&& arg) noexcept;
+
+Both signatures return the same as:
+static_cast<decltype(arg)&&>(arg)
+
+std::back_inserter も std::back_insert_iterator
+の型指定を楽にするためのヘルパ関数
+
+クラステンプレートの引数を省略できるようにするために用意されている
+
+template <class Container>
+std::back_insert_iterator<Container> back_inserter(Container& Cont) {
+	return std::back_insert_iterator<Container>(Cont)
+}
+
+
+tag dispatch : 型に応じて適切な関数を呼び出すための手法の一つ
+				分類したい型にタグをつけて実際に呼ばれる関数を
+				コンパイル時に決定する
+
+ex.) 標準ライブラリ <iterator> に定義されているadvance()
+template <class Iterator, class Distance>
+void advance(Iterator& iter, Distance offset);
+
+iterをoffset回進める
+
+Iteratorが
+・Bidirectional Iterator
+・Random Access Iterator
+のどちらかである場合はoffsetが負数であっても良い
+
+
+<iterator>ヘッダ内に以下のような構造体が定義されている
+struct input_iterator_tag {};
+struct output_iterator_tag {};
+
+struct forward_iterator_tag
+	: public input_iterator_tag {};
+
+struct bidirectional_iterator_tag
+	: public forward_iterator_tag {};
+
+struct random_access_iterator_tag
+	: public bidirectional_iterator_tag {};
+
+メンバを一切持たない名前だけのクラス
+これが関数を呼び分けるためのタグとして機能する
+
+また標準コンテナに対応するiteratorにはタグを使った
+typedefが定義されている
+
+vector<T>::iterator内
+typedef random_access_iterator_tag iterator_category;
+
+list<T>::iterator内
+typedef bidirectional_iterator_tag iterator_category;
+
+さらにiterator_traits<Iterator>内には
+typedef typename Iterator::iterator_category iterator_category;
+
+があり, ポインタに対して特殊化されたiterator_traits<T*>内には
+typedef typename random_access_iterator_tag iterator_category;
+
+がある
+
+ってことはiterator_categoryで記述を統一できる
+
+タグディスパッチはコンパイル時に適切な関数を呼び分けるので
+コンパイル時ポリモーフィズムと呼ばれている
+
+
+パラメータ化継承 : テンプレート引数で基本クラスを指定する手法
+					既存のクラスへのメンバ追加, 機能の変更や拡張が
+　　　　　　　　　　可能になる
+
+
+テンプレートメタプログラミング
+=> テンプレートのインスタンス化を利用してコンパイル時に
+　　処理を行う手法
+   メインの目的は強力なライブラリの実装
+
+＊コンパイル時にすべてが評価される
+=> 変数や実行時の制御構造(if文,for文など)が使えない
+
+テンプレートメタプログラミングで使えるもの
+=> 定数とメタ関数
+
+定数・メタ関数・明示的/部分特殊化・SFINAE
+といった言語仕様を組み合わせて制御機構を実現する
+
+メタ関数：引数として型や定数をテンプレート引数に取り
+　　　　　型または定数値を返す
+
+メタ関数は状態を持たない！=> 同じ入力に対して必ず同じ出力が得られる
+
+＠特徴
+・状態を持たない
+・同じ入力には常に同じ出力を返す
+・ループには再帰
+
+テンプレートプログラミング
+=> Haskellのような関数型プログラミングのパラダイムに属していると
+　　言われている
+
+＊再帰テンプレート
+=> 再帰によってnの階乗を計算する
+
+int fact(int n){
+	return (n > 0 ? n * fact(n-1) : 1);
+}
+
+// このように関数に渡す値が静的な値を渡す場合は
+// テンプレートでの再帰処理が適用できる
+// でも普通の関数で実装するとコンパイル時に計算できない
+int result = fact(3);
+
+
+メタ関数：テンプレートを仕様してコンパイル時に実行される
+
+template <int N>
+struct increment {
+	static const int value = N + 1;
+};
+
+上記のテンプレートを次のように使ってみる
+int n = increment<3>::value;
+
+これは以下のようにインスタンス化される
+struct increment_N_is_3 {
+	static const int value = 3 + 1;
+};
+
+よってコード生成する段階では
+int n = 4;
+のようになる
+
+＊incrementというクラステンプレートはテンプレートパラメータとして
+　定数Nを受け取ってN+1を返す関数と見ることができる
+
+つまり
+int increment(int N){
+	return N + 1;
+}
+という関数と等価
+
+通常の関数との違い
+・状態を持たない
+・定数や型のみ扱うことができる
+・変数や実行時の制御構造(if文/for文など)を使えない
+・同じ入力に対して必ず同じ出力をする
+
+meta-function : テンプレートのインスタンス化を利用して
+　　　　　　　　コンパイル時に処理を行うクラステンプレート
+
+
+ex.) Exponential function
+
+template <int X, int N>
+struct pow {
+	staic const size_t value = X * pow<X,N-1>::value;
+};
+
+// explicit specialization
+template <int X>
+struct pow<X,0> {
+	static const size_t value = 1;
+};
+
+
+上記のメタ関数は以下の関数と等価
+int pow(int X, int N){
+	return X * (N == 0 ? 1 : pow(X,N-1));
+}
+
+
+＊C++11以降, constexprを使わないと通常の関数
+　をコンパイル時にも実行できるようになった
+
+
+constexpr int pow(int x, int n) {
+	return n * (n == 0 ? 1 : pow(x, n-1));
+}
+
+constexpr int result = pow(2, 3);
+
+=> メタ関数とは異なりconstexpr関数では浮動小数点数も扱える
+   ＄メタ関数の真骨頂は「型」を処理できることにある！
+　　　メタ関数は型の変換や判別を静的に行うことができる
+
+型を操作するメタ関数
+=> テンプレートパラメータで型を受け取り, typedefで
+　戻り値となる型を表現する
+
+// 受け取った型をそのまま返す恒等メタ関数
+template <class T>
+struct identity {
+	// テンプレートパラメータで受け取った型にtypedefで別名をつける
+	typedef T type; // 型Tを返す
+};
+
+identity<int>::type value;
+
+// 上の処理はインスタンス化によって
+// int value;
+// 
+
+
+型を修飾する関数
+テンプレートパラメータに受け取った型を修飾する関数
+
+受け取った型をポインタにするメタ関数
+template <class T>
+struct add_pointer {
+	typedef T* type;
+};
+
+int value = 3;
+
+add_pointer<int>::type p = &value;
+
+型Tを const T& に修飾するメタ関数
+template <class T>
+struct add_const_lvalue_reference {
+	typedef const T& type;
+};
+
+int value = 3;
+// これは const int& になる
+add_const_lvalue_reference<int>::type cr = value;
+
+＊メタ関数は小さい機能に分けた方が便利
+add_lvalue_reference を小さく分割
+
+add_const : const を加える
+add_lvalue_reference : lvalue referenceを加える
+
+
+// 複数ついているconstは1つと見なされるので
+// 部分特殊化の必要なし
+template <class T>
+struct add_const {
+	typedef const T type;
+};
+
+template <class T>
+struct add_lvalue_reference {
+	typedef T& type;
+};
+
+// lvalue referenceで部分特殊化
+template <class T>
+struct add_lvalue_reference<T&> {
+	typedef T& type;
+};
+
+// 二つのメタ関数を組み合わせる
+template <class T>
+struct add_const_lvalue_reference {
+	typedef
+		typename add_const<
+			typename add_lvalue_reference<T>::type				
+		>::type
+	type;
+};
+
+// add_const<>::typeもadd_lvalue_reference<>::typeも
+// テンプレートパラメータに依存する名前なので
+// 型であることを明示するために先頭にtypenameをつける
+
+＊受け取った型の修飾を外すメタ関数
+template <class T>
+struct remove_const {
+	typedef T type;
+};
+
+// 恒等メタ関数の部分特殊化として
+// const を外して返すパターンを加える
+template <class T>
+struct remove_const<const T> {
+	typedef T type;
+};
+
+// 下の文は int value = 3 と等価
+remove_const<const int>::type value = 3;
+
+＊volatileも同様に外せる
+template <class T>
+struct remove_volatile {
+	typedef T type;
+};
+
+template <class T>
+struct remove_volatile<volatile T> {
+	typedef T type;
+}
+
+// テンプレートパラメータTのconst, volatile修飾子を外すメタ関数
+template <class T>
+struct remove_cv {
+	typedef
+		typename remove_const<
+			typename remove_volatile<T>::type
+		>::type
+	type;
+};
+
+volatile修飾子 : スレッドの制御外でオブジェクトが変更されうる
+                 ことを表す
+=> 冗長に見える読み取りや書き込みを最適化によって除去しては
+   ならないことをコンパイラに通知する
+
+ex.)
+// ハードウェアのクロックによって変更される
+volatile const long clock_register;
+
+auto t1 {clock_register};
+// ... この間clock_registerを一切利用しない ...
+auto t2 {clock_register};
+
+ここでのclock_registerがvolatileでなければ
+コンパイラはどちらかの読み取りを削除できると考えて
+t1 == t2 が想定できると判断する可能性がある
+
+＊ハードウェアを直接処理する低レベルなコード以外では
+  volatileを利用しないこと！！
+  volatileがメモリモデルで特別な意味を持つと考えてはいけない!!
+
+
+＠メタ関数は通常の関数とは異なり複数の戻り値を持つことができる
+ex.) 標準ライブラリのiterator_traits
+parameter    : type of iterator, type of pointer
+return value
+=> deference_type
+   value_type
+   pointer
+   reference
+   iterator_category
+
+
+template <class Iterator>
+struct iterator_traits {
+	typedef typename Iterator::difference_type difference_type;
+	typedef typename Iterator::value_type value_type;
+	typedef typename Iterator::pointer pointer;
+	typedef typename Iterator::reference reference;
+	typedef typename Iterator::iterator_category iterator_category;
+};
+
+// 以下略・・・・T*, const T* での特殊化
+
+複数の戻り値を持つメタ関数は便利だけども
+1つの機能を使用するために残り全てがインスタンス化されて
+しまいコンパイル時間が長くなってしまう
+(＊Boostライブラリでは複数の戻り値を持つメタ関数は使用されていない)
+
+
+＠コンパイル時if文
+テンプレートメタプログラミングでは条件分岐を
+特殊化で表現する
+=> 簡単な条件分岐でもその都度記述するとコード量が増えてしまう
+   静的条件分岐を抽象化した if_ メタ関数を作る
+
+template <class Cond, class Then, class Else>
+struct if_;
+
+/*
+@Para1 : コンパイル時条件
+@Para2 : Condがtrueのときの戻り値の型
+@Para3 : Condがfalseのときの戻り値の型
+*/
+
+// コンパイル時条件Condはtrueかfalseの値しかとらない
+// つまり下のコードで全てのパターンを網羅している
+// => 故に一番上のif_メタ関数がインスタンス化されることはない
+//    よって宣言のみで定義は必要ない
+//    ただし, 部分特殊化のために宣言だけは必要
+
+template <class Then, class Else>
+struct if_<true, Then, Else> {
+	typedef Then type;
+};
+
+template <class Then, class Else>
+struct if_<false, Then, Else> {
+	typedef Else type;
+};
+
+
+高階関数 : 関数または関数オブジェクトを引数または戻り値にする関数
+
+ex.) 高階関数の例
+
+// 検索条件も引数として受け取る
+template <class Iterator, class Predicate>
+Iterator find_if(Iterator first, Iterator last, Predicate pred) {
+	while(first != last) {
+		if(pred(*first))
+			break;
+		++first;
+	}
+
+	return first;
+}
+
+
+struct is_even {
+	bool operator()(int x) const {
+		return x % 2 == 0;
+	}
+}
+
+int main() {
+	std::vector<int> v { 1, 2, 3 };
+
+	// コンテナ内に偶数が存在しているか確認
+	// 高階関数を利用することで関数内で行う計算を外部から指定できる
+	bool found = find_if(
+					std::begin(v),
+					std::end(v),
+					is_even()
+				) != std::end(v);
+
+	return 0;
+}
+
+
+
+高階メタ関数 : メタ関数を引数として受け取るメタ関数
+
+次のようなメタ関数があるとする
+
+template <int N>
+struct is_even {
+	static const bool value = N%2==0;
+}
+
+コンパイル時条件を受け取るメタ関数が上のメタ関数を利用する場合は
+次のようになる
+
+// 偶数だったらint型, 奇数ならlong型
+if_<is_even<2>::value, int, long>::type value;
+
+コンパイル時条件に値を渡すたびに::valueを書くのが面倒！
+メタ関数の結果を渡すのではなく, メタ関数を渡せばスッキリ
+
+higher-order metafunction
+
+＊Boostでは高階メタ関数と定数値を直接受け取るメタ関数を
+  セットで提供する場合に, ていい数値を受け取るメタ関数には
+  constant(定数)を意味する _c という接頭辞を付ける傾向がある
+
+ex.) if_c
+
+template <bool Cond, class Then, class Else>
+struct if_c;
+
+template <class Then, class Else>
+struct if_c<true, Then, Else> {
+	typedef Then type;
+};
+
+template <class Then, class Else>
+struct if_c<false, Then, Else> {
+	typedef Else type;
+};
+
+
+コンパイル時条件をメタ関数で受け取るif_の定義
+
+// if_ は条件メタ関数の結果を渡したif_cを継承している
+
+template <class Cond, class Then, class Else>
+struct if_ : public if_c<Cond::value, Then, Else> {};
+
+これでメタ条件関数if_はコンパイル時条件をメタ関数で指定する際に
+::valueを省略できる
+
+if_を使用した場合
+if_<is_even<2>, int long>::type value;
+
+
+メタ関数を多用したプログラムでは
+::type, ::valueといったメタ関数の戻り値が頻出する
+
+=> 高階メタ関数を利用してメタ関数をテンプレートパラメータとして
+   受け取るようにすると, テンプレートメタプログラミングのコード
+   が簡潔になる
+
+
+@C++11時代のメタ関数
+typename func<arg>::type というメタ関数の構文は関数の構文と
+かけ離れている
+David Abrahams(Boostライブラリ作者の1人)がC++11の機能を利用して
+メタ関数の構文を改善する方法を発見
+
+
+ex.) add_pointerの例で考えてみる
+
+C++03での例
+template <class T>
+struct add_pointer {
+	typedef T* type;
+};
+
+// メタ関数の実行
+typedef add_pointer<int>::type result_type;
+
+
+C++11版のadd_pointerメタ関数
+template <class T>
+T* add_pointer();
+
+// メタ関数の実行
+typedef decltype(add_pointer<int>()) result_type;
+
+
+C++11ではメタ関数を関数テンプレートとして定義できる
+(今回は受け取ったパラメータTに対してT*を返す関数として定義)
+
+decltype : 式の型を取得する
+=> 関数適用の式をdecltypeに渡すとその関数の戻り値の型を返す
+   つまりdecltypeをメタ関数の実行として扱える
+
+＄Point
+関数テンプレートadd_pointer()は宣言だけ行い, 定義しない
+decltype内の式は評価されないので必要なものは関数のシグニチャのみ
+関数定義をしないことでメタ関数として定義した関数を誤って通常の
+関数として使えないようにしている
+
+ここまででdecltype(add_type<T>())というdecltype
+がついている点を除いて関数の構文と同様にメタ関数を
+かけるようになりました
+
+
+
+
+
+
+関数のシグニチャ : 関数名, パラメータリスト, 戻り値の型
+
+
+SFINAE(Substituion Failure Is Not An Error)
+関数テンプレートの置き換えに失敗した場合に
+エラーが発生するのではなくその関数テンプレートを
+オーバーロードの候補から外す作用のこと
+
+
+型特性メタ関数(type traits metafunction)
+=> 型の特徴(整数型、ポインタ型、参照型、クラス、継承関係など)
+   を判定したり型の特徴を操作したりするためのメタ関数
+
+
+*Boostと標準のenable_if
+C++11以降の標準ライブラリで<type_traits>ヘッダ内に
+定義されているstd::enable_if
+
+std::enable_if equals to boost::enable_if_c.
+So std::enable_if recieves boolean constant,
+not high-order metafunction.
+
+And C++ standard library doesn't define disable_if.
+So you pass false condition to std::enable_if
+instead of disable_if.
+
+
+Use enable_if at return type.
+
+関数にパラメータを追加してenable_if/disable_if
+判定を行う場合は演算子のようにパラメータの数が
+決まっている関数に対しては適用できない
+
+Since C++11, you can set default template parameter
+to function template.
+And you can specify enable_if as default template parameter.
+
+
+＠クラスの基礎
+クラスの概要
+・クラスはユーザ定義型である
+
+・クラスの構成はメンバの集まり
+　データメンバ、メンバ関数など
+
+・メンバ関数によって
+　初期化（作成）、コピー、ムーブ、後始末の処理を定義できる
+
+・メンバのアクセスに利用するもの
+　オブジェクトからメンバへ  .
+　ポインタからメンバへ      ->
+
+・+や!や[]などの演算子をクラス用に定義できる
+
+・クラスは名前空間でもありその中にメンバも含まれる
+
+・publicメンバはインターフェースを表現し
+　privateメンバは実装の詳細を表現する
+
+・structはすべてのメンバがデフォルトでpublicとなる
+　クラスのことである
+
+
+
+ポリシーに基づく設計はクラステンプレートに拡張性を
+もたせる。
+
+ポリシークラスが増える => 逐一指定指定するのが難しくなる
+
+一部のものだけカスタムを使用したい場合は？
+=> デフォルトテンプレートを使うとしても対象型が
+　前の方にないと面倒
+
+
+ex.) ハッシュ表を用いた集合コンテナの boost::unordered_set
+     を例に考える
+
+template <class Key,
+			class Hash = std::hash<Key>,
+			class Pred = std::equal_to<Key>,
+			class Allocator = std::allocator<Key>>
+class unordered_set;
+
+Key       : キーの型
+Hash      : ハッシュ計算用の関数オブジェクト
+Pred      : 等値比較用の関数オブジェクト
+Allocator : アロケータ
+
+
+これのアロケータをカスタム指定するなら
+アロケータ以外はデフォルト指定にもかかわらず
+他のポリシーも明示的に指定しなければならない
+
+
+テンプレートパラメータの定義順序に依存しない
+ポリシークラス（テンプレート引数）の指定方法
+が必要
+=> Named Template Parameter
+
+
+// 順不同
+unordered_set<
+	T,
+	allocator_policy<my_allocator<T>>,
+	equal_policy<equal_to<T>>,
+	hash_policy<hash<T>>
+> s;
+
+// デフォルトポリシーがあるものは
+// 指定しなくてもよい
+unordered_set<
+	T,
+	allocator_policy<my_allocator<T>>
+> a;
+
+@ Named template parameter
+=> para_name <para_value>
+
+
+
+
+
+smart_ptr <
+	multi_thread_model<true>,
+	owenership<reference_cout>
+> p;
+
+
+#include <initializer_list>
+
+template <class T>
+class initializer_list;
+
+
+C++では配列や構造体の初期化に特殊な構文を使える
+int x[3] = { 1, 2, 3 };
+struct Foo { int i; double d; };
+Foo foo = { 123, 3.14 };
+
+これがクラスで使えなかったけど
+C++0xではこれができるようになる
+
+{} による初期化式をリスト初期化という
+
+ユーザ定義のコンストラクタ
+privateやprotectedな非静的なデータメンバ
+基本クラス
+仮想関数のないクラスと配列
+・従来通りの初期化
+
+
+ユーザ定義のコンストラクタ
+privateやprotectedな非静的なデータメンバ
+基本クラス
+仮想関数
+を有するクラスをどうやって初期化する？？
+
+＠クラス側でリスト初期化に対応するコードを書く必要がある
+＊言語サポートライブラリのstd::initializer_list<T>という
+  クラスを引数にとる必要がある
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

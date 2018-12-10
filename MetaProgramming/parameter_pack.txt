@@ -1,0 +1,57 @@
+可変長テンプレート(Variadic template)
+=> ...を用いて任意長のパラメータを引数にできる機能
+
+template <typename... Args>
+void func(Args... args);
+
+
+{} での初期化
+C言語からある集成体(Aggregate)の初期化を
+クラスとかの初期化にも使えるようにしようぜって話
+
+// メンバ変数の配列の初期化にも使用可
+class X {
+	int ary[3];
+
+public:
+	X() : ary {10,20,30} {}
+};
+
+
+デフォルトコンストラクタを呼び出す変数定義
+とかやるとコンパイラが関数の宣言と区別がつかない
+ときがある, コンパイラによる
+
+class X{};
+
+auto main() -> int {
+	// こんなん
+	X obj();
+
+	// こっちは曖昧にならない
+	X obj{};
+}
+
+
+FPGA(field-programmable Gate Array)
+=> 製造後に購入者や設計者が構成を設定できる集積回路
+   PLD(Programmable Logic Device) の一種
+
+PLD(Programmable Logic Device)
+=> 製造後にユーザの手元で内部論理回路を定義・変更できる集積回路
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
